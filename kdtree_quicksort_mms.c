@@ -22,16 +22,17 @@ static inline void swap(struct kd_node_t *x, struct kd_node_t *y) {
 }
 
 /* Function to sort an array using insertion sort*/
-void insertion_sort_subs(struct kd_node_t *start, int n, int dim)
+void insertion_sort(struct kd_node_t *start, int n, int dim)
 {
     int i,j;
     double key;
-    for (i = 1; i <= n; i++) {
+    for (i = 1; i < n; i++) {
         j = i ;
         struct kd_node_t *temp_j = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
         struct kd_node_t *temp_jprev = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
         temp_j = &start[j];
         temp_jprev = &start[j-1];
+
         /* Move elements of arr[0..i-1], that are
           greater than key, to one position ahead
           of their current position */
@@ -51,24 +52,27 @@ size_t med_index(size_t i) {
 struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elts) {
     struct kd_node_t *end = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-    end = &start[n_elts];
-    if (n_elts <10){
-        insertion_sort_subs(start, n_elts, axis);
+    end = &start[n_elts-1];
+
+    // base case
+    if (n_elts < 10){
+        insertion_sort(start, n_elts, axis);
         temp =  start + (end - start) / 2;
-        temp->index = n_elts/2;
+        temp->index = (n_elts-1)/2;
         return temp;
     }
 
     int n_sublists = n_elts/5;
     struct kd_node_t* medians = (struct kd_node_t*)malloc(n_sublists * sizeof(struct kd_node_t));
-    // sort sublists of 5 elements
+
+    // sort sublists of 5 elements with insertion sort O(n)
     for (size_t i = 0; i < n_sublists; ++i) {
 
         int idx_right = i*5;
 
         int idx_left = n_elts - idx_right < 5 ? n_elts - 1:  idx_right + 4;
 
-        insertion_sort_subs(&start[idx_right], idx_left, axis);
+        insertion_sort(&start[idx_right], idx_left, axis);
 
         int index = (idx_right + idx_left) / 2;
         memcpy(&medians[i],  &start[idx_right + 2], sizeof(struct kd_node_t));
@@ -76,7 +80,7 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elt
     }
 
     
-    // determine pivot (possibly recursively)
+    // determine pivot recursively
     struct kd_node_t* pivot;
     if (n_sublists < 5)
         pivot = &medians[med_index(n_sublists)];
@@ -86,15 +90,18 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elt
     return pivot; 
 }
 
-    struct kd_node_t*
-make_tree(struct kd_node_t *t, int len, int i, int dim)
+struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 {
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *n = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+
     int myaxis = (i + 1) % dim;
 
     if (!len) return 0;
+
     temp = median_of_medians(t, myaxis, len);
+
+    // extracting index to use element of original array for recursion make_tree
     int index = temp->index;
     n = &t[index];
     n->axis = &myaxis;
