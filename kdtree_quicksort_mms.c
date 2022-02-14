@@ -10,7 +10,7 @@
 struct kd_node_t{
     double x[MAX_DIM];
     struct kd_node_t *left, *right;
-    int* axis;
+    int axis;
     int index;
 };
  
@@ -104,15 +104,15 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
     // extracting index to use element of original array for recursion make_tree
     int index = temp->index;
     n = &t[index];
-    n->axis = &myaxis;
+    n->axis = myaxis;
 
     printf("The median value is: %f\n", *n->x);
-    printf("The axis is: %d\n", *n->axis);
+    printf("The axis is: %d\n", n->axis);
 
-    if (n) {
+
         n->left  = make_tree(t, n - t, myaxis, dim);
         n->right = make_tree(n + 1, t + len - (n + 1), myaxis, dim);
-    }
+
     return n;
 }
 
@@ -136,7 +136,7 @@ void print2DUtil(struct kd_node_t *root, int space)
     printf("\n");
     for (int i = COUNT; i < space; i++)
         printf(" ");
-    printf("%f %d\n", *root->x, *root->axis);
+    printf("%f %d\n", *root->x, root->axis);
  
     // Process left child
     print2DUtil(root->left, space);
