@@ -26,21 +26,22 @@ void insertion_sort(struct kd_node_t *start, int n, int dim)
 {
     int i,j;
     double key;
+    struct kd_node_t *temp_j = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+    struct kd_node_t *temp_jprev = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+
     for (i = 1; i < n; i++) {
         j = i ;
-        struct kd_node_t *temp_j = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-        struct kd_node_t *temp_jprev = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-        temp_j = &start[j];
-        temp_jprev = &start[j-1];
+        temp_j = start + j;
+        temp_jprev = temp_j - 1;
 
         /* Move elements of arr[0..i-1], that are
           greater than key, to one position ahead
           of their current position */
         while (j > 1 && temp_j-> x[dim]  < temp_jprev-> x[dim]) {
-            swap(&start[j], &start[j-1]);
+            swap(start + j, start + j - 1);
             j = j - 1;
-            temp_j = &start[j];
-            temp_jprev = &start[j-1];
+            temp_j = start + j;
+            temp_jprev = temp_j - 1;
         }
     }
 }
@@ -49,10 +50,10 @@ size_t med_index(size_t i) {
     return (size_t)(floor(i/2));
 }
  
-struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elts) {
-    struct kd_node_t *end = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *end, int axis, int n_elts) {
+    //struct kd_node_t *end = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-    end = &start[n_elts-1];
+    //end = &start[n_elts-1];
 
     // base case
     if (n_elts < 10){
@@ -62,7 +63,7 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elt
         return temp;
     }
 
-    int n_sublists = n_elts/5;
+    int n_sublists = ceil(n_elts/5);
     struct kd_node_t* medians = (struct kd_node_t*)malloc(n_sublists * sizeof(struct kd_node_t));
 
     // sort sublists of 5 elements with insertion sort O(n)
@@ -85,7 +86,7 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elt
     if (n_sublists < 5)
         pivot = &medians[med_index(n_sublists)];
     else
-        pivot = median_of_medians(medians, axis, n_sublists);
+        pivot = median_of_medians(medians, medians + n_sublists - 1,axis, n_sublists);
 
     return pivot; 
 }
@@ -93,13 +94,13 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, int axis, int n_elt
 struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 {
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-    struct kd_node_t *n = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+    struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
     int myaxis = (i + 1) % dim;
 
     if (!len) return 0;
 
-    temp = median_of_medians(t, myaxis, len);
+    temp = median_of_medians(t, t + len - 1, myaxis, len);
 
     // extracting index to use element of original array for recursion make_tree
     int index = temp->index;
@@ -111,7 +112,7 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 
 
         n->left  = make_tree(t, n - t, myaxis, dim);
-        n->right = make_tree(n + 1, t + len - (n + 1), myaxis, dim);
+        n->right = make_tree(&t[index] + 1, t + len - (n + 1), myaxis, dim);
 
     return n;
 }
