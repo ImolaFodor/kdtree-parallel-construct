@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define MAX_DIM 2
-#define COUNT 10
+#define COUNT 50
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -73,10 +73,10 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
 
         int idx_left = n_elts - idx_right < 5 ? n_elts - 1:  idx_right + 4;
 
-        insertion_sort(&start[idx_right], idx_left, axis);
+        insertion_sort(&start[idx_right], idx_left - idx_right + 1, axis);
 
-        int index = (idx_right + idx_left) / 2;
-        memcpy(&medians[i],  &start[idx_right + 2], sizeof(struct kd_node_t));
+        int index = floor((idx_right + idx_left) / 2);
+        medians[i] =  start[idx_right + 2];
         medians[i].index = index;
     }
 
@@ -151,18 +151,31 @@ void print2D(struct kd_node_t *root)
 }
  
  
-#define N 1000000
-#define rand1() (rand() / (double)RAND_MAX)
-#define rand_pt(v) { v.x[0] = rand1(); v.x[1] = rand1(); v.x[2] = rand1(); }
 int main(void)
 {
-    int i;
-    struct kd_node_t wp[] = {
-        {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}}, {{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
-    };
+    // int i;
+    // struct kd_node_t wp[] = {
+    //     {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}} ,{{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
+    // };
+
+    int n=COUNT,d=MAX_DIM;
+    struct kd_node_t* wp = (struct kd_node_t*)malloc(n * sizeof(struct kd_node_t));
+    struct kd_node_t* arr =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));    
+
+    srand(time(NULL));
+
+    for (int i = 0; i < n; i++){    
+        if (arr == NULL) exit(1);
+        for(int j=0; j<d;j++){
+            arr->x[j] = rand()%100;
+        }
+
+        wp[i] = *arr;
+    }
+    
     struct kd_node_t *root;
  
-    root = make_tree(wp, sizeof(wp) / sizeof(wp[1]), 0, 2);
+    root = make_tree(wp, COUNT, 0, 2);
     
     print2D(root);
     // free(million);
