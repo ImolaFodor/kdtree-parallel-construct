@@ -3,9 +3,9 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-
+#include <omp.h>
 #define MAX_DIM 2
-#define COUNT 50
+#define COUNT 10000
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -65,9 +65,9 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
 
     int n_sublists = ceil(n_elts/5);
     struct kd_node_t* medians = (struct kd_node_t*)malloc(n_sublists * sizeof(struct kd_node_t));
-
+    int i;
     // sort sublists of 5 elements with insertion sort O(n)
-    for (size_t i = 0; i < n_sublists; ++i) {
+    for (i = 0; i < n_sublists; ++i) {
 
         int idx_right = i*5;
 
@@ -107,20 +107,28 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
     n = &t[index];
     n->axis = myaxis;
 
-    printf("The median value is: %f\n", *n->x);
-    printf("The axis is: %d\n", n->axis);
+//    printf("The median value is: %f\n", *n->x);
+//    printf("The axis is: %d\n", n->axis);
 
-
+#pragma omp task 
+{
         n->left  = make_tree(t, n - t, myaxis, dim);
-        n->right = make_tree(&t[index] + 1, t + len - (n + 1), myaxis, dim);
 
+}
+
+#pragma omp task 
+{
+        n->right = make_tree(&t[index] + 1, t + len - (n + 1), myaxis, dim);
+}
     return n;
+
 }
 
 // Function to print binary tree in 2D
 // It does reverse inorder traversal
 void print2DUtil(struct kd_node_t *root, int space)
 {
+
     // Base case
     if (root == NULL)
         return;
@@ -135,7 +143,8 @@ void print2DUtil(struct kd_node_t *root, int space)
     // Print current node after space
     // count
     printf("\n");
-    for (int i = COUNT; i < space; i++)
+    int i;
+    for (i = COUNT; i < space; i++)
         printf(" ");
     printf("%f %d\n", *root->x, root->axis);
  
@@ -158,27 +167,47 @@ int main(void)
     //     {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}} ,{{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
     // };
 
-    int n=COUNT,d=MAX_DIM;
-    struct kd_node_t* wp = (struct kd_node_t*)malloc(n * sizeof(struct kd_node_t));
+
+#pragma omp parallel
+{
+#pragma omp single nowait
+{
+
+    int nthreads = omp_get_num_threads();
+    printf("Number of threads: %d", nthreads);
+
+    int n=15;
+    int d=2;
+
+    struct kd_node_t* wp = (struct kd_node_t*)malloc(COUNT * sizeof(struct kd_node_t));
     struct kd_node_t* arr =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));    
 
     srand(time(NULL));
-
-    for (int i = 0; i < n; i++){    
+    int i;
+    for (i = 0; i < COUNT; i++){    
         if (arr == NULL) exit(1);
-        for(int j=0; j<d;j++){
+        int j;
+        for(j=0; j<d;j++){
             arr->x[j] = rand()%100;
         }
 
         wp[i] = *arr;
     }
     
-    struct kd_node_t *root;
- 
+    struct kd_node_t *root;     
+    clock_t begin = clock();
     root = make_tree(wp, COUNT, 0, 2);
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+
+    printf("Execution time: %f", time_spent); 
     
-    print2D(root);
-    // free(million);
- 
+//    print2D(root);
+}
+
+
+
+}
     return 0;
 }
+
