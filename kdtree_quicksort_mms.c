@@ -5,7 +5,7 @@
 #include <time.h>
 #include <omp.h>
 #define MAX_DIM 2
-#define COUNT 10000
+#define COUNT 100000000
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -29,6 +29,7 @@ void insertion_sort(struct kd_node_t *start, int n, int dim)
     struct kd_node_t *temp_j = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *temp_jprev = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
+    #pragma omp parallel for
     for (i = 1; i < n; i++) {
         j = i ;
         temp_j = start + j;
@@ -162,19 +163,22 @@ void print2D(struct kd_node_t *root)
  
 int main(void)
 {
-    // int i;
-    // struct kd_node_t wp[] = {
-    //     {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}} ,{{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
-    // };
-
-
 #pragma omp parallel
 {
-#pragma omp single nowait
+
+struct kd_node_t *root;
+double time_spent;
+
+#pragma omp master
 {
 
     int nthreads = omp_get_num_threads();
-    printf("Number of threads: %d", nthreads);
+    printf("Number of threads: %d\n", nthreads);
+
+//     struct kd_node_t wpv0[] = {
+//         {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}} ,{{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
+//     };
+
 
     int n=15;
     int d=2;
@@ -194,17 +198,19 @@ int main(void)
         wp[i] = *arr;
     }
     
-    struct kd_node_t *root;     
     clock_t begin = clock();
     root = make_tree(wp, COUNT, 0, 2);
     clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 
-    printf("Execution time: %f", time_spent); 
-    
-//    print2D(root);
+    printf("Execution time: %f\n", time_spent);
+
 }
 
+//#pragma omp barrier
+//{
+//    print2D(root);
+//}
 
 
 }
