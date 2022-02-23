@@ -4,8 +4,11 @@
 #include <math.h>
 #include <time.h>
 #include <omp.h>
+#include <mpi.h>
+#include <stdbool.h>
+
 #define MAX_DIM 2
-#define COUNT 100000000
+#define COUNT 15
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -68,6 +71,7 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
     struct kd_node_t* medians = (struct kd_node_t*)malloc(n_sublists * sizeof(struct kd_node_t));
     int i;
     // sort sublists of 5 elements with insertion sort O(n)
+    #pragma parallel for
     for (i = 0; i < n_sublists; ++i) {
 
         int idx_right = i*5;
@@ -94,6 +98,15 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
 
 struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 {
+   
+    int numprocs, rank, namelen;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int iam = 0, np = 1;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Get_processor_name(processor_name, &namelen);
+
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
@@ -108,21 +121,21 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
     n = &t[index];
     n->axis = myaxis;
 
-//    printf("The median value is: %f\n", *n->x);
-//    printf("The axis is: %d\n", n->axis);
+    printf("The median value is: %f\n", *n->x);
+    printf("The axis is: %d\n", n->axis);
 
-#pragma omp task 
-{
+    np = omp_get_num_threads();
+    
+    #pragma omp task 
+    {
         n->left  = make_tree(t, n - t, myaxis, dim);
+    }
 
-}
-
-#pragma omp task 
-{
+    #pragma omp task 
+    {
         n->right = make_tree(&t[index] + 1, t + len - (n + 1), myaxis, dim);
-}
+    }
     return n;
-
 }
 
 // Function to print binary tree in 2D
@@ -161,59 +174,79 @@ void print2D(struct kd_node_t *root)
 }
  
  
-int main(void)
+int main(int argc, char* argv[])
 {
-#pragma omp parallel
-{
+    int rank, provided;
+    double start_time, end_time;
+    struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
-struct kd_node_t *root;
-double time_spent;
+    MPI_Init(&argc, &argv);
+    //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    if (provided < MPI_THREAD_FUNNELED) MPI_Abort(MPI_COMM_WORLD,1);
 
-#pragma omp master
-{
-
-    int nthreads = omp_get_num_threads();
-    printf("Number of threads: %d\n", nthreads);
-
-//     struct kd_node_t wpv0[] = {
-//         {{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}, {{17, 11}} ,{{20, 19}}, {{24, 16}}, {{15, 27}}, {{41, 43}},{{33, 34}}
-//     };
-
-
-    int n=15;
-    int d=2;
-
-    struct kd_node_t* wp = (struct kd_node_t*)malloc(COUNT * sizeof(struct kd_node_t));
-    struct kd_node_t* arr =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));    
-
-    srand(time(NULL));
-    int i;
-    for (i = 0; i < COUNT; i++){    
-        if (arr == NULL) exit(1);
-        int j;
-        for(j=0; j<d;j++){
-            arr->x[j] = rand()%100;
-        }
-
-        wp[i] = *arr;
-    }
+    start_time=MPI_Wtime();
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
-    clock_t begin = clock();
-    root = make_tree(wp, COUNT, 0, 2);
-    clock_t end = clock();
-    time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+//    struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+    struct kd_node_t* wp = (struct kd_node_t*)malloc(COUNT * sizeof(struct kd_node_t));
+    #pragma omp parallel
+    {
+      #pragma omp single nowait
+      {
+        if (rank = 0){
+          //wpv0[] = {{{2, 3}}, {{5, 4}}, {{9, 6}}, {{4, 7}}, {{8, 1}}, {{7, 2}}, {{10, 5}},{{12, 10}}, {{21, 22}}};
 
-    printf("Execution time: %f\n", time_spent);
+          int nthreads = omp_get_num_threads();
+          printf("Number of threads: %d\n", nthreads);
 
-}
+          //struct kd_node_t* wp = (struct kd_node_t*)malloc(COUNT * sizeof(struct kd_node_t));
+          struct kd_node_t* arr =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));    
 
-//#pragma omp barrier
-//{
-//    print2D(root);
-//}
+          srand(time(NULL));
+          int i;
+       
+          for (i = 0; i < COUNT; i++){    
+            if (arr == NULL) exit(1);
+            int j;
+            for(j=0; j<MAX_DIM;j++){
+              arr->x[j] = rand()%100;
+            }
+          }
 
+          wp[i] = *arr;
 
-}
-    return 0;
+          int myaxis = (0 + 1) % 2;
+          temp = median_of_medians(wp, wp + COUNT - 1, 0, COUNT);
+
+          // extracting index to use element of original array for recursion make_tree
+          int index = temp->index;
+          n = &wp[index];
+          n->axis = myaxis;
+          printf("Process 0 received number from process 0\n");
+          MPI_Send(&wp, 7*sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD);
+          //printf("Process 0 received number from process 0\n");
+
+          n->right = make_tree(&wp[index] + 1, wp + COUNT - (n + 1), 0, 2);
+          
+         // MPI_Barrier(MPI_COMM_WORLD);
+         // printf("\nEND: This need to print after all MPI_Send/MPI_Recv has been completed\n\n");
+         // print2D(n);
+          }
+          if  (rank == 1) {
+          MPI_Recv(&wp, 7*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
+          printf("Process 1 received number from process 0\n");
+          n->left  = make_tree(wp, n - wp, 0, 2);
+         // MPI_Barrier(MPI_COMM_WORLD);
+        }
+      
+    } 
+  } 
+  end_time = MPI_Wtime();
+  
+  printf("Start Time: %f, End Time: %f, Elapsed Time: %10.8f \n",start_time, end_time, end_time-start_time);
+  MPI_Finalize();
+print2D(n);
 }
 
