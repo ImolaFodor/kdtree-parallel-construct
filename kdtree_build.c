@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_DIM 2
-#define COUNT 15
+#define COUNT 100000000
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -226,7 +226,9 @@ int main(int argc, char* argv[])
           index = temp->index;
           root = &wp[index];
           root->axis = myaxis;
-          printf("Process 0 received number from process 0\n");
+          printf("The median value is: %f\n", root->x[0]);
+          number_of_elements = COUNT - 1;
+
           // BroadCast the Size to all the process from root process
           MPI_Bcast(&number_of_elements, 1, MPI_INT, 0,
                            MPI_COMM_WORLD);
@@ -254,7 +256,7 @@ int main(int argc, char* argv[])
           printf("\nEND: This need to print after all MPI_Send/MPI_Recv has been completed\n\n");
           MPI_Recv(&n, sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           memcpy(&root->left, n, sizeof(struct kd_node_t));
-          //print2D(root);
+          print2D(root);
           }
           if  (rank == 1) {
           own_chunk_size = (number_of_elements >= chunk_size*(rank + 1)) ? chunk_size : (number_of_elements - chunk_size*rank);
