@@ -1,30 +1,40 @@
 Hybrid pseudo
+
 Example with 4 num_procs / tasks 
+
+...
 If rank = 0 
 	Construct array wp.
 	idxs <- Find first 3 (num_procs - 1) pivots – the root, 2 for the 2nd level root[1], root[2] //to be able to work with 4 chunks for the 4 processors
-                  For i=1 : num_procs – 1
+        For i=1 : num_procs – 1
 		MPI_Send(wp[idxs[i - 1]], idxs[i]…tag1..)
 		MPI_Send(size_chunk… tag2..)
-                  Endfor 
-                  Root [num_p - 1]<- left = make_tree(wp, idxs…) 
+        EndFor 
+	
+        root[num_p - 1]<- left = make_tree(wp, idxs…) 
+	
+	// Wait for the ranks to send back results
 	j = 0
 	For i = 1 : num_procs – 1
 		MPI_Recv(n, … , tag_i..)
 	
 		If i even 
-			Root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] = n
 		ElseIf i is odd
-			Root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] = n
 			j = j + 1
 		Endif 
-	Endfor 
+	EndFor 
 	
 	print2D(root)
 EndIf
+
 If rank > 0
 	MPI_Recv(chunk, … tag1..)
 	MPI_Recv(chunk_size, … tag2)
+	
 	n = make_tree(chunk, chunk_size..)
-	MPI_Send(n, …, 0, tag_rank, ..)	
+	
+	MPI_Send(n, … 0, tag_rank, ..)	
 EndIf 
+...
