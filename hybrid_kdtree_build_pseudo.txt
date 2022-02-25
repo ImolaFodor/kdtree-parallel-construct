@@ -19,9 +19,9 @@ If rank = 0
 		MPI_Recv(n, … , tag_i..)
 	
 		If i even 
-			root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] -> left = n
 		ElseIf i is odd
-			root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] -> right = n
 			j = j + 1
 		Endif 
 	EndFor 
