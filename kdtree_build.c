@@ -225,48 +225,51 @@ int main(int argc, char* argv[])
               chunk_size= index;           
               printf("Chunk size to be sent to process 1 : %d\n", chunk_size);
               printf("In process 0 ... wp element %f\n", wp -> x[0]);
-          
+              MPI_Send(&chunk_size, 1, MPI_INT, 1, 2, MPI_COMM_WORLD);
               MPI_Send(wp, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD);
          
               root -> right = make_tree(&wp[index] + 1, wp + COUNT - (root + 1), 0, 2);
           
-          //MPI_Barrier(MPI_COMM_WORLD);
+            //MPI_Barrier(MPI_COMM_WORLD);
           //MPI_Recv(n, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           //memcpy(root->left, n, chunk_size*sizeof(struct kd_node_t));
-              }
-            }          
+             MPI_Status status;
+             MPI_Recv(n, sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD, &status);
+
+             printf("In process 0 ... n element %f\n", n -> x[0]);
+             root -> left = n;
+             }
+             #pragma omp barrier
+             {
+               print2D(root);
+ 
+             }
+          
+          }           
           }
 
           //Broadcast the Size to all the process from root process
-          MPI_Bcast(&chunk_size, 1, MPI_INT, 0, MPI_COMM_WORLD);                         
+         // MPI_Bcast(&chunk_size, 1, MPI_INT, 0, MPI_COMM_WORLD);                         
           
           if  (rank == 1) {
             #pragma omp parallel
             {
               #pragma omp single nowait
               {
-
+                MPI_Status status;
+                MPI_Recv(&chunk_size, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 chunk = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
                 printf("Chunk size in process 1 is %d\n", chunk_size);         
            
-                MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &status);
                 printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 n = make_tree(chunk, chunk_size, 0, 2);
                 printf("In process 1 ... Median element %f\n", n -> x[0]);
-         
-                MPI_Send(&n, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1,0, MPI_COMM_WORLD);
-              }
+                
+                MPI_Send(n, sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD);
+                printf("In process 1 ...sent n element %f\n", n -> x[0]);
+               }
             }
-          }
-
-          //MPI_Barrier(MPI_COMM_WORLD);
-          if (rank==0){
-            MPI_Recv(&n, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            root -> left = n;
-            #pragma omp barrier
-            {          
-              print2D(root);
-            }         
           }
       
   end_time = MPI_Wtime();
