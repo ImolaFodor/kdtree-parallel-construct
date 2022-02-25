@@ -7,18 +7,18 @@ If rank = 0
 		MPI_Send(wp[idxs[i - 1]], idxs[i]…tag1..)
 		MPI_Send(size_chunk… tag2..)
                   Endfor 
-                  Root [num_p - 1]<- left = make_tree(wp, idxs…) 
+                  root[num_p - 1]<- left = make_tree(wp, idxs…) 
 	j = 0
 	For i = 1 : num_procs – 1
 		MPI_Recv(n, … , tag_i..)
 	
 		If i even 
-			Root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] = n
 		ElseIf i is odd
-			Root[num_procs – 1 + j] = n
+			root[num_procs – 1 + j] = n
 			j = j + 1
 		Endif 
-	Endfor 
+	EndFor 
 	
 	print2D(root)
 EndIf
