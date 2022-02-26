@@ -299,15 +299,24 @@ int main(int argc, char* argv[])
                
                 MPI_Recv(&chunk_size, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 chunk = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
-                //chunk_send = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
+                
                 //printf("In process 1 ... Chunk size is %d\n", chunk_size);         
            
                 MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 send_n = make_tree(chunk, chunk_size, 1, 2);
-               // printf("In process 1 ... Median element %f\n", send_n -> left -> x[0]);
+                // printf("In process 1 ... Median element %f\n", send_n -> left -> x[0]);
                 chunk_send = inOrder(send_n, chunk_size);          
+              
+              
+                int i;
 
+                for (i = 0; i < chunk_size; i++){
+                  struct kd_node_t* arr_element =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+                  arr_element = chunk_send + i;
+                  printf("What is being sent to rank 0 as a chunk/array %f\n", arr_element->x[1]);
+                }
+             
 
                 MPI_Send(chunk_send,chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
                 //printf("In process 1 ...sent n element %f\n", n -> x[0]);
@@ -315,7 +324,7 @@ int main(int argc, char* argv[])
                }
              #pragma omp barrier
              {
-              // print2D(send_n);
+               print2D(send_n);
              } 
            }
          }
