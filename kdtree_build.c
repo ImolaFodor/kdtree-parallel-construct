@@ -24,6 +24,7 @@ static inline void swap(struct kd_node_t *x, struct kd_node_t *y) {
     memcpy(y->x, tmp,  sizeof(tmp));
 }
 
+
 /* Function to sort an array using insertion sort*/
 void insertion_sort(struct kd_node_t *start, int n, int dim)
 {
@@ -121,7 +122,7 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
     n = &t[index];
     n->axis = myaxis;
 
-//    printf("The median value is: %f\n", *n->x);
+   printf("The median value is: %f\n", *n->x);
 //    printf("The axis is: %d\n", n->axis);
 
 //    np = omp_get_num_threads();
@@ -172,8 +173,50 @@ void print2D(struct kd_node_t *root)
    // Pass initial space count as 0
    print2DUtil(root, 0);
 }
- 
- 
+
+void inOrderRecursive(struct kd_node_t *root, struct kd_node_t* nodes, int idx)
+{
+    if (root == NULL){
+      return;
+    }else{
+      idx = idx + 1;
+    }
+      
+    inOrderRecursive(root->left, nodes, idx); //visit left sub-tree
+
+    nodes[idx] = *root;
+
+    struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+    temp = nodes + idx;
+    printf("Element of tree to be inserted into array nodes: %f\n", temp->x[1]);
+   
+    inOrderRecursive(root->right, nodes, idx); //visit right sub-tree
+}
+
+struct kd_node_t* inOrder(struct kd_node_t *root, int size)
+{
+    struct kd_node_t* nodes=(struct kd_node_t*)malloc(size * sizeof(struct kd_node_t));    
+    inOrderRecursive(root, nodes, -1);
+    return nodes;
+}
+
+
+void insert(struct kd_node_t **t, struct kd_node_t  *a, int index, int n)
+{
+    if (index < n) {
+        *t = malloc(sizeof(**t));
+        struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+        temp = a + index; 
+        (*t)->x[0] = temp -> x[0];
+        (*t)->x[1] = temp -> x[1];
+        (*t)->left = NULL;
+        (*t)->right = NULL;
+        (*t)->axis = temp->axis;
+        printf("Node from array to be connected to left subtree %f\n", temp->x[0]);
+        insert(&(*t)->left, a, 2 * index + 1, n);
+        insert(&(*t)->right, a, 2 * index + 2, n);
+    }
+} 
 int main(int argc, char* argv[])
 {
     int rank, provided;
@@ -232,12 +275,12 @@ int main(int argc, char* argv[])
          
               root -> right = make_tree(&wp[index] + 1, wp + COUNT - (root + 1),1 , 2);
           
-              MPI_Recv(n, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+              MPI_Recv(n,chunk_size* sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-              //printf("In process 0 ... n elements child %f\n", n -> left -> x[0]);
-              //memcpy(root->left, n, sizeof(struct kd_node_t));
-	      root->left = n; 
-            }
+              //printf("In process 0 ... n element %f\n", n -> x[0]);
+              insert(&root->left, n, 0, chunk_size);
+              
+              }
              
               #pragma omp barrier
               {
@@ -250,24 +293,31 @@ int main(int argc, char* argv[])
         if  (rank == 1) {
             #pragma omp parallel
             {
-              struct kd_node_t *send_n;
+              struct kd_node_t *chunk_send, *send_n;
               #pragma omp single nowait
               {
                
                 MPI_Recv(&chunk_size, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 chunk = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
+                //chunk_send = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
                 //printf("In process 1 ... Chunk size is %d\n", chunk_size);         
            
                 MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 send_n = make_tree(chunk, chunk_size, 1, 2);
                // printf("In process 1 ... Median element %f\n", send_n -> left -> x[0]);
-                
-                MPI_Send(send_n, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
+                chunk_send = inOrder(send_n, chunk_size);          
+
+
+                MPI_Send(chunk_send,chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
                 //printf("In process 1 ...sent n element %f\n", n -> x[0]);
                 
                }
-            }
+             #pragma omp barrier
+             {
+              // print2D(send_n);
+             } 
+           }
          }
       
   end_time = MPI_Wtime();
