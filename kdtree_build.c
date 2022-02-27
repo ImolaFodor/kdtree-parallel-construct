@@ -210,8 +210,8 @@ void treeFromArray(struct kd_node_t **t, struct kd_node_t  *a, int index, int n)
         (*t)->right = NULL;
         (*t)->axis = temp->axis;
         //printf("Node from array to be connected to left subtree %f\n", temp->x[0]);
-        insert(&(*t)->left, a, 2 * index + 1, n);
-        insert(&(*t)->right, a, 2 * index + 2, n);
+        treeFromArray(&(*t)->left, a, 2 * index + 1, n);
+        treeFromArray(&(*t)->right, a, 2 * index + 2, n);
     }
 } 
 int main(int argc, char* argv[])
@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 send_n = make_tree(chunk, chunk_size, 1, 2);
                 printf("In process 1 ... Median element %f\n", send_n -> x[0]);
-                chunk_send = arrayFomTree(send_n, chunk_size);          
+                chunk_send = arrayFromTree(send_n, chunk_size);          
               
                 int i;
 
