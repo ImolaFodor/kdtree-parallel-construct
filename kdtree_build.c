@@ -176,32 +176,29 @@ void print2D(struct kd_node_t *root)
 
 void inOrderRecursive(struct kd_node_t *root, struct kd_node_t* nodes, int idx)
 {
-    if (root == NULL){
+    // Only the first element is not null, theroot->left is already null, 
+    // shouldnt be, print2D for the same root prints all recursively
+    if (root == NULL)
       return;
-    }else{
-      idx = idx + 1;
-    }
+    
       
     inOrderRecursive(root->left, nodes, idx); //visit left sub-tree
 
-    nodes[idx] = *root;
-
-    struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-    temp = nodes + idx;
-    printf("Element of tree to be inserted into array nodes: %f\n", temp->x[1]);
+    swap(nodes + idx, root); // push_back in c++
+    idx = idx - 1;
    
     inOrderRecursive(root->right, nodes, idx); //visit right sub-tree
 }
 
-struct kd_node_t* inOrder(struct kd_node_t *root, int size)
+struct kd_node_t* arrayFromTree(struct kd_node_t *root, int size)
 {
     struct kd_node_t* nodes=(struct kd_node_t*)malloc(size * sizeof(struct kd_node_t));    
-    inOrderRecursive(root, nodes, -1);
+    inOrderRecursive(root, nodes, size-1);
     return nodes;
 }
 
 
-void insert(struct kd_node_t **t, struct kd_node_t  *a, int index, int n)
+void treeFromArray(struct kd_node_t **t, struct kd_node_t  *a, int index, int n)
 {
     if (index < n) {
         *t = malloc(sizeof(**t));
@@ -212,7 +209,7 @@ void insert(struct kd_node_t **t, struct kd_node_t  *a, int index, int n)
         (*t)->left = NULL;
         (*t)->right = NULL;
         (*t)->axis = temp->axis;
-        printf("Node from array to be connected to left subtree %f\n", temp->x[0]);
+        //printf("Node from array to be connected to left subtree %f\n", temp->x[0]);
         insert(&(*t)->left, a, 2 * index + 1, n);
         insert(&(*t)->right, a, 2 * index + 2, n);
     }
@@ -278,7 +275,7 @@ int main(int argc, char* argv[])
               MPI_Recv(n,chunk_size* sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
               //printf("In process 0 ... n element %f\n", n -> x[0]);
-              insert(&root->left, n, 0, chunk_size);
+              treeFromArray(&root->left, n, 0, chunk_size);
               
               }
              
@@ -305,9 +302,8 @@ int main(int argc, char* argv[])
                 MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 send_n = make_tree(chunk, chunk_size, 1, 2);
-                // printf("In process 1 ... Median element %f\n", send_n -> left -> x[0]);
-                chunk_send = inOrder(send_n, chunk_size);          
-              
+                printf("In process 1 ... Median element %f\n", send_n -> x[0]);
+                chunk_send = arrayFomTree(send_n, chunk_size);          
               
                 int i;
 
@@ -316,7 +312,6 @@ int main(int argc, char* argv[])
                   arr_element = chunk_send + i;
                   printf("What is being sent to rank 0 as a chunk/array %f\n", arr_element->x[1]);
                 }
-             
 
                 MPI_Send(chunk_send,chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
                 //printf("In process 1 ...sent n element %f\n", n -> x[0]);
@@ -324,7 +319,7 @@ int main(int argc, char* argv[])
                }
              #pragma omp barrier
              {
-               print2D(send_n);
+              // print2D(send_n);
              } 
            }
          }
