@@ -120,19 +120,24 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     n->axis = myaxis;
     n->index = index;
     printf("The medians index value is: %d\n", index);
-
+    rank = rank + 1;
     #pragma omp task
     {
-        if (depth == 2){
-         
-          rank = rank + 1; 
-         
+        if (depth == (log2(numprocs) - 1)){ 
+          
+          rank = rank == numprocs ? 1 : rank;    
           int chunk_size;
           chunk_size = n-t;
-          printf("Want to send chunk_size subtree to rank %d, size %d \n", chunk_size);
+          printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
           MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-          MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);      
-            
+          MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE,rank, 0, MPI_COMM_WORLD);      
+         
+          rank = rank==numprocs ? 1 : rank + 1;     
+          chunk_size = t + len - (n+1);
+          printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
+          MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
+          MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);
+       
         }
  
         depth = depth + 1;
@@ -142,21 +147,26 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     #pragma omp task
     {
        depth = depth + 1;
-       if (depth == 2){
+       if (depth == (log2(numprocs) - 1)){
          
-         rank = rank +1;      
+         rank = rank == numprocs ? 1 : rank;      
          
          int chunk_size;
+         chunk_size = n - t;
+         printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
+         MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
+         MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);         
+     
+         rank = rank==numprocs ? 1 : rank + 1;
          chunk_size = t + len - (n+1);
          printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
          MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-         MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);         
-               
-        }
- 
+         MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);               
+        
+} 
        
      	n->right = find_first_nodes(&t[index] + 1, t + len - (n + 1), myaxis, dim, depth, rank);
-    }
+   }
 
     return n;
 }
