@@ -96,7 +96,11 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
 
     return pivot; 
 }
-struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim, int depth,int  rank)
+
+struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim);
+void print2D(struct kd_node_t *root);
+
+struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim, int depth,int* rank)
 {
     int numprocs, namelen;
     char processor_name[MPI_MAX_PROCESSOR_NAME];
@@ -119,24 +123,36 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     n = &t[index];
     n->axis = myaxis;
     n->index = index;
-    printf("The medians index value is: %d\n", index);
-    rank = rank + 1;
+    printf("The medians index value is: %d\n", index + 1);
+    //rank = rank + 1;
     #pragma omp task
     {
+        
+        int chunk_size;
         if (depth == (log2(numprocs) - 1)){ 
-          
-          rank = rank == numprocs ? 1 : rank;    
-          int chunk_size;
-          chunk_size = n-t;
-          printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
-          MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-          MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE,rank, 0, MPI_COMM_WORLD);      
          
-          rank = rank==numprocs ? 1 : rank + 1;     
+          *rank = *rank + 1;
+          *rank = *rank >= numprocs ? 0 : *rank;    
+          if (*rank == 0){
+            printf("Left chunk to %d, size %d \n", *rank, n-t);
+            struct kd_node_t* send_n;
+            send_n = make_tree(t, n - t, myaxis, 2);
+            printf("In process %d ...send_n  element %f\n", *rank, send_n -> x[0]);
+            //print2D(send_n);
+          }else{
+          
+          chunk_size = n-t;
+          printf("Left chunk to rank %d, size %d \n", *rank, chunk_size);
+          MPI_Send(&chunk_size, 1, MPI_INT, *rank, 2, MPI_COMM_WORLD);
+          MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE,*rank, 0, MPI_COMM_WORLD);      
+          }
+          
+          *rank = *rank + 1;
+          *rank = *rank>=numprocs ? 0 : *rank;     
           chunk_size = t + len - (n+1);
-          printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
-          MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-          MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);
+          printf("Right chunk to rank %d, size %d \n", *rank, chunk_size);
+          MPI_Send(&chunk_size, 1, MPI_INT, *rank, 2, MPI_COMM_WORLD);
+          MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, *rank, 0, MPI_COMM_WORLD);
        
         }
  
@@ -146,25 +162,8 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
 
     #pragma omp task
     {
-       depth = depth + 1;
-       if (depth == (log2(numprocs) - 1)){
-         
-         rank = rank == numprocs ? 1 : rank;      
-         
-         int chunk_size;
-         chunk_size = n - t;
-         printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
-         MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-         MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);         
-     
-         rank = rank==numprocs ? 1 : rank + 1;
-         chunk_size = t + len - (n+1);
-         printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
-         MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
-         MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);               
         
-} 
-       
+        depth = depth + 1;      
      	n->right = find_first_nodes(&t[index] + 1, t + len - (n + 1), myaxis, dim, depth, rank);
    }
 
@@ -330,8 +329,9 @@ int main(int argc, char* argv[])
                 }
                 wp[i] = *arr;
               }
-          
-              root = find_first_nodes(wp, COUNT, 0, 2, 0, 0);
+              int* ptr_rank = (int*)malloc(sizeof(int));
+	      *ptr_rank = -1;
+              root = find_first_nodes(wp, COUNT, 0, 2, 0, ptr_rank);
  
               printf("In process 0 ... root element %f\n", root -> x[0]);
     
@@ -361,7 +361,7 @@ int main(int argc, char* argv[])
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
                 
                 send_n = make_tree(chunk, chunk_size, 1, 2);
-                printf("In process %d ...send_n  element %f\n",rank, send_n -> x[0]);
+                printf("In process %d ...send_n element %f\n",rank, send_n -> x[0]);
                 //chunk_send = arrayFromTree(send_n, chunk_size);          
               
             
