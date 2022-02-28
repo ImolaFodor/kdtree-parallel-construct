@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_DIM 2
-#define COUNT 15
+#define COUNT 20
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -96,6 +96,70 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
 
     return pivot; 
 }
+struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim, int depth,int  rank)
+{
+    int numprocs, namelen;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int iam = 0, np = 1;
+   
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Get_processor_name(processor_name, &namelen);
+
+    struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+    struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
+
+    int myaxis = (i + 1) % dim;
+    
+    if (depth == log2(numprocs)) return 0;
+
+    temp = median_of_medians(t, t + len - 1, myaxis, len);
+
+    
+    int index = temp->index;
+    n = &t[index];
+    n->axis = myaxis;
+    n->index = index;
+    printf("The medians index value is: %d\n", index);
+
+    #pragma omp task
+    {
+        if (depth == 2){
+         
+          rank = rank + 1; 
+         
+          int chunk_size;
+          chunk_size = n-t;
+          printf("Want to send chunk_size subtree to rank %d, size %d \n", chunk_size);
+          MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
+          MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);      
+            
+        }
+ 
+        depth = depth + 1;
+     	n->left  = find_first_nodes(t, n - t, myaxis, dim, depth, rank);
+    }
+
+    #pragma omp task
+    {
+       depth = depth + 1;
+       if (depth == 2){
+         
+         rank = rank +1;      
+         
+         int chunk_size;
+         chunk_size = t + len - (n+1);
+         printf("Want to send chunk_size subtree to rank %d, size %d \n", rank, chunk_size);
+         MPI_Send(&chunk_size, 1, MPI_INT, rank, 2, MPI_COMM_WORLD);
+         MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);         
+               
+        }
+ 
+       
+     	n->right = find_first_nodes(&t[index] + 1, t + len - (n + 1), myaxis, dim, depth, rank);
+    }
+
+    return n;
+}
 
 struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 {
@@ -116,27 +180,29 @@ struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
     if (!len) return 0;
 
     temp = median_of_medians(t, t + len - 1, myaxis, len);
-
+    
     // extracting index to use element of original array for recursion make_tree
     int index = temp->index;
     n = &t[index];
     n->axis = myaxis;
 
-   printf("The median value is: %f\n", *n->x);
+//    printf("The median value is: %f\n", *n->x);
 //    printf("The axis is: %d\n", n->axis);
-
-//    np = omp_get_num_threads();
     
+
     #pragma omp task 
-    {
+    { 
+      
         n->left  = make_tree(t, n - t, myaxis, dim);
+        
     }
 
     #pragma omp task 
-    {
+    { 
         n->right = make_tree(&t[index] + 1, t + len - (n + 1), myaxis, dim);
     }
-    return n;
+    return n;   
+  
 }
 
 // Function to print binary tree in 2D
@@ -183,8 +249,8 @@ void inOrderRecursive(struct kd_node_t *root, struct kd_node_t* nodes, int idx)
     
       
     inOrderRecursive(root->left, nodes, idx); //visit left sub-tree
-
-    swap(nodes + idx, root); // push_back in c++
+    printf("Element index %d \n", root->index);
+    memcpy(nodes + idx, root, sizeof(struct kd_node_t)); // push_back in c++
     idx = idx - 1;
    
     inOrderRecursive(root->right, nodes, idx); //visit right sub-tree
@@ -219,7 +285,7 @@ int main(int argc, char* argv[])
     int rank, provided;
     double start_time, end_time;
     //struct kd_node_t *root;
-    int number_of_process,chunk_size, index;
+    int numprocs,chunk_size, index, procs_to_employ;
     struct kd_node_t *chunk;
     
     //MPI_Init(&argc, &argv);
@@ -228,11 +294,11 @@ int main(int argc, char* argv[])
 
     start_time=MPI_Wtime();
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &number_of_process);
-    printf("Number of processes %d\n", number_of_process);
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    printf("Number of processes %d\n", numprocs);
  
     struct kd_node_t* temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-    struct kd_node_t* n = (struct kd_node_t*)malloc(COUNT* sizeof(struct kd_node_t));
+    struct kd_node_t* idxs = (struct kd_node_t*)malloc(COUNT* sizeof(struct kd_node_t));
     struct kd_node_t* wp = (struct kd_node_t*)malloc(COUNT * sizeof(struct kd_node_t));
  
         if (rank == 0){
@@ -255,30 +321,11 @@ int main(int argc, char* argv[])
                 wp[i] = *arr;
               }
           
-              int myaxis = (0 + 1) % 2;
-              temp = median_of_medians(wp, wp + COUNT - 1, 0, COUNT);
-              // extracting index to use element of original array for recursion make_tree
-              index = temp->index;
-              root = &wp[index];
-              root->axis = myaxis;
-         
-              // Computing chunk size
-              chunk_size= index;           
-              //printf("In process 0 ...Chunk size to be sent to process 1 %d\n", chunk_size);
-              //printf("In process 0 ... temp element %f\n", temp -> x[0]);
-             
-              MPI_Send(&chunk_size, 1, MPI_INT, 1, 2, MPI_COMM_WORLD);
-              MPI_Send(wp, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 1, 0, MPI_COMM_WORLD);
-         
-              root -> right = make_tree(&wp[index] + 1, wp + COUNT - (root + 1),1 , 2);
-          
-              MPI_Recv(n,chunk_size* sizeof(struct kd_node_t), MPI_BYTE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-              //printf("In process 0 ... n element %f\n", n -> x[0]);
-              treeFromArray(&root->left, n, 0, chunk_size);
-              
-              }
-             
+              root = find_first_nodes(wp, COUNT, 0, 2, 0, 0);
+ 
+              printf("In process 0 ... root element %f\n", root -> x[0]);
+    
+             }
               #pragma omp barrier
               {
                 print2D(root);
@@ -287,39 +334,34 @@ int main(int argc, char* argv[])
           }           
         } 
  
-        if  (rank == 1) {
+        if  (rank > 0) {
             #pragma omp parallel
             {
-              struct kd_node_t *chunk_send, *send_n;
+             struct kd_node_t *chunk_send, *send_n;
               #pragma omp single nowait
               {
                
                 MPI_Recv(&chunk_size, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                
                 chunk = (struct kd_node_t*)malloc(chunk_size * sizeof(struct kd_node_t));
                 
                 //printf("In process 1 ... Chunk size is %d\n", chunk_size);         
            
                 MPI_Recv(chunk, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 //printf("In process 1 ... Chunk element %f\n", chunk -> x[0]);
-                send_n = make_tree(chunk, chunk_size, 1, 2);
-                printf("In process 1 ... Median element %f\n", send_n -> x[0]);
-                chunk_send = arrayFromTree(send_n, chunk_size);          
-              
-                int i;
-
-                for (i = 0; i < chunk_size; i++){
-                  struct kd_node_t* arr_element =  (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-                  arr_element = chunk_send + i;
-                  printf("What is being sent to rank 0 as a chunk/array %f\n", arr_element->x[1]);
-                }
-
-                MPI_Send(chunk_send,chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
-                //printf("In process 1 ...sent n element %f\n", n -> x[0]);
                 
+                send_n = make_tree(chunk, chunk_size, 1, 2);
+                printf("In process %d ...send_n  element %f\n",rank, send_n -> x[0]);
+                //chunk_send = arrayFromTree(send_n, chunk_size);          
+              
+            
+                //MPI_Send(chunk_send,chunk_size*sizeof(struct kd_node_t), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
+                //printf("In process 1 ...sent n element %f\n", n -> x[0]);
+                // TODO  Rank 0 misses the code for Recv and treeFromArray call, find in previous commits    
                }
              #pragma omp barrier
              {
-              // print2D(send_n);
+                     print2D(send_n);
              } 
            }
          }
@@ -329,4 +371,5 @@ int main(int argc, char* argv[])
   printf("Start Time: %f, End Time: %f, Elapsed Time: %10.8f \n",start_time, end_time, end_time-start_time); 
   MPI_Finalize();
 }
+
 
