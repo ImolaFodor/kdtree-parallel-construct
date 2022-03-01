@@ -276,21 +276,22 @@ In case of the above described implementation, the purely serial part (s) is the
 
 \subsection{Weak scaling}
 Gustafson instead pointed out, that in practice the sizes of problems scale with the amount of available resources.
-This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ.
+This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ. The problem size was increased by a factor of $10$ (starting from $1k$), with each scale up in resources.
 \begin{equation} \label{eqn}
 	Sgus(P) = {s + p × N} 
 \end{equation}
 \begin{figure}[H]
-    \centering
+\centering
 \begin{subfigure}{\plotwidth\textwidth}
-        \centering
+\centering
 \includegraphics[width=\linewidth, height=\plotheight\textheight]{img_weak_scaling_efficiency}
-\caption{Figure 4.}
 \end{subfigure}
 \end{figure}
+On $Figure 4.$ it can be noted that the efficiency starts at $8\%$, would confirm that the implementation is not very suitable for leveraging large resources.
 \subsection{Thread equilibrium for Hybrid solution}
 To understand better the optimal number of threads to be used for the hybrid approach, further analysis is needed.
 Using for the purpose the OpenMP function $omp\_get\_wtime$.
+It was noted that the program, to execute on $10k$ datapoints, took slightly lower time for 2 threads, $0.39s$ whileas for larger threads the time was $>0.4s$.
 \section{Conclusion}
 OpenMPI strategy could have been used to find the pivot element. In that case, rank 0 would have scattered the sections to the ranks, the ranks would have computed the insertion sort, to then send back their medians to rank 0, rank 0 gathering them.
 \end{document}
