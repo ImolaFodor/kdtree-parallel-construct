@@ -1,0 +1,267 @@
+\documentclass[11pt]{article}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\title{kd-tree construction and analysis with OpenMP and OpenMPI}
+\date{Deadline 28.02.2022}
+\author{Imola Fodor SM3500474 \\Foundations of High Performance Computing \\University of Trieste}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\newpage
+
+\section{Introdution}
+A K Dimensional tree (or k-d tree) is a tree data structure that is used to represent points with more than one property in a k-dimensional space. It is a convenient way to organize points by several criteria at once and it provides eg. a convenient way to search, cluster points by their overall similarity. \\ In this work a way to build and parallelize such a tree is presented.
+\section{Algorithm}
+The construction of the tree is done by:
+\begin{itemize}
+  \item Finding median/pivot by median of medians of the input array. Each section of constant length is sorted by insertion sort. 
+  \item Recursively proceed on left and right portions on the left and right of the found median. Each median is a node.
+  \item Terminate when length of a portion is 0. 
+  \item Return root node.
+\end{itemize}
+
+The time complexity of the divide and conquer algorithm is O(nlogn) since the pivot is chosen in O(nlogn) time. If the partitioning would be done in a non optimal way (choosing as pivot the lowest, largest element of the array), the complexity would be O($n^2$).
+\begin{algorithm}[H]
+\caption{Build kD-tree}
+\hspace*{\algorithmicindent} \textbf{Input} \text{arrayOfNodes} \\
+\hspace*{\algorithmicindent} \textbf{Output} \text{treeRootNode}
+\begin{algorithmic}[1]
+\Function{BuildKDTree}{startNode, length, axis, dim}
+\Statex
+\If{$length = 0$}\Comment{base case}
+\State return 0
+\EndIf
+\Statex
+\State $\textit{myaxis} \gets \text{round robin approach between 0 and 1}$
+\Statex
+\State $\textit{medianNode} \gets \Call{MedianOfMedians}{$startNode, startNode + length -1, myaxis, len$}$
+\Statex
+\State $\textit{medianNode.left} \gets \Call{BuildKDTree}{$startNode, medianNode - startNode, myaxis, dim$}$
+\State $\textit{medianNode.right} \gets \Call{BuildKDTree}{$startNode, startNode + length - (medianNode + 1) , myaxis, dim$}$
+\State \Return \text{treeNode}
+\EndFunction
+\Statex
+\Function{MedianOfMedians}{startNode, endNode, myaxis, length}
+\If{$length < 10$}\Comment{base case}
+\State \Call{InsertionSort}{$startNode, length, myaxis$}
+\State $\textit{median} \gets middleElement$
+\Else
+\State $\text{subarrays} \gets ceiling(n/5)$
+\State $\text{allocate array medians of length subarrays}$
+\For{$i\gets 1, subarrays$}
+\State \Call{InsertionSort}{$startNode, length, myaxis$}
+\State $\textit{medians[i]} \gets middleElement$
+\EndFor
+\Statex
+\If {$numSubarrays = high$}
+\State $\textit{median} \gets \Call{MedianOfMedians}{medians, end, myaxis, length}$
+\EndIf
+\EndIf
+\State \Return \text{median}
+\EndFunction
+\Statex
+\Procedure{InsertionSort}{startNode, length, axis}
+\State \text{ similar to the sorting of playing cards in hands }
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+\section{Implementation}
+
+Herein the strategy used for OpenMP, OpenMP and their hybrid solution.
+
+\subsection{OpenMP}
+OpenMP is one of the application programming interfaces that facilitates the employment of a shared memory paradigm for parallelization within a node.
+Below the simplified, decorated Algorithm1 with the instruction read by OpenMP during compilation.
+\begin{algorithm}[H]
+\caption{Build kD-tree w/ OpenMP}
+\hspace*{\algorithmicindent} \textbf{Input} \text{arrayOfNodes} \\
+\hspace*{\algorithmicindent} \textbf{Output} \text{treeRootNode}
+\begin{algorithmic}[1]
+\Function{main}{}
+\color{blue}
+\State{\#pragma omp parallel}
+\State{\#pragma omp single nowait}
+\color{black}
+\State{initialize random arrayOfNodes}
+\State $\textit{root} \gets \Call{BuildKDTree}{$arrayOfNodes, length, 0, 2$}$
+\color{blue}
+\State{\#pragma omp barrier}
+\color{black}
+\State $print \textit{root}$
+\EndFunction
+\Function{BuildKDTree}{startNode, length, axis, dim}
+\Statex
+\If{$length = 0)$}\Comment{base case}
+\State return 0
+\EndIf
+\Statex
+\State $\textit{myaxis} \gets \text{round robin approach between 0 and 1}$
+\Statex
+\State $\textit{medianNode} \gets \Call{MedianOfMedians}{$startNode, startNode + length -1, myaxis, len$}$
+\Statex
+\color{blue}
+\State{\#pragma omp task}
+\color{black}
+\State $\textit{medianNode.left} \gets \Call{BuildKDTree}{$leftPoints, length, myaxis, dim$}$
+\color{blue}
+\State{\#pragma omp task}
+\color{black}
+\State $\textit{medianNode.right} \gets \Call{BuildKDTree}{$rightPoints, length, myaxis, dim$}$
+\State \Return \text{treeNode}
+\EndFunction
+\Statex
+\Function{MedianOfMedians}{startNode, endNode, myaxis, length}
+\If{$length < 10$}\Comment{base case}
+\State \Call{InsertionSort}{$startNode, length, myaxis$}
+\State $\textit{median} \gets middleElement$
+\Else
+\For{$i\gets 1, subarrays$}
+\color{blue}
+\State {\#pragma omp parallel for}
+\color{black}
+\State \Call{InsertionSort}{$startNode, length, myaxis$}
+\State $\textit{medians[i]} \gets middleElement$
+\EndFor
+\Statex
+\State $\textit{median} \gets medians[middleElement]$
+\EndIf
+\State \Return \text{median}
+\EndFunction
+\Statex
+\algstore{bkbreak}
+\end{algorithmic}
+\end{algorithm}
+Continuing ... 
+\begin{algorithm}[h]
+\begin{algorithmic}[1]
+\algrestore{bkbreak}
+\Procedure{InsertionSort}{startNode, length, axis}
+\State \text{ similar to the sorting of playing cards in hands }
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Hybrid solution}
+The hybrid solution, other than leveraging parallelization within a node, leverages also the different nodes that reside in a cluster, scaling up the solution. To achieve this, point-to-point messaging needs to be designed along the NUMA node on disposal, since each node has its own memory space.
+Once a task receives it's message, each one computes the assignment on its portion of data using OpenMP threads, as under subsection OpenMP.\\\\In order for each task to get it's portion of data, rank0, the master rank, get's to find the tree nodes up until the level of the kdtree from where it is possible to assign the unique, fairly balanced, and only portions of data for each task (the left-most chunk being processed by rank 0). This approach was decided upon, to ensure load balancing and to easily reconstruct the tree, by sending the subtrees back to rank0.\\\\MPI calls are made inside parallel regions, but there is no restriction when a certain thread receives the message from the master rank, hence the $MPI\_THREAD\_MULTIPLE$ paradigm is flagged.\\\\Below the function that employs tasks, and the main function.
+
+\begin{algorithm}[H]
+\caption{Build kD-tree w/ Hybrid}
+\hspace*{\algorithmicindent} \textbf{Input} \text{arrayOfNodes, numProcs, rank} \\
+\hspace*{\algorithmicindent} \textbf{Output} \text{treeRootNode}
+\begin{algorithmic}[1]
+\Function{main}{}
+\color{orange}
+\State $MPI\_Init\_thread(..., MPI\_THREAD\_MULTIPLE, ...)$
+\color{black}
+\color{blue}
+\State{\#pragma omp parallel}
+\State{\#pragma omp single nowait}
+\color{black}
+\State{initialize random arrayOfNodes}
+\If{rank = 0}
+\State $\textit{root} \gets \Call{FindFirstNodes}{$arrayOfNodes, length, 0, 2, depth=0,rank = -1$}$ \Comment{rank is a pointer}
+\Else
+\color{orange}
+\State $MPI\_Recv(length, 1, MPI\_INT, 0, 2, MPI\_COMM\_WORLD, ...)$
+\State $MPI\_Recv(portion, length, MPI\_BYTE, 0, 0, MPI\_COMM\_WORLD, ...)$
+\color{black}
+\State $\textit{toSend} \gets \Call{BuildKDTree}{$portion, length, myaxis, 2$}$ \Comment{ideally the head of the subtree would be sent back to rank 0, for full tree construct}
+\EndIf
+\color{orange}
+\State $MPI\_Finalize()$
+\color{black}
+\EndFunction
+\Function{FindFirstNodes}{startNode, length, axis, dim}
+\Statex
+\State $\textit{myaxis} \gets \text{round robin approach between 0 and 1}$
+\Statex
+\If{$depth == log2(numProcs)$}\Comment{base case}
+\State return 0
+\EndIf
+\Statex
+\State $\textit{medianNode} \gets \Call{MedianOfMedians}{$startNode, startNode + length -1, myaxis, len$}$
+\Statex
+\color{blue}
+\State{\#pragma omp task}
+\color{black}
+\If{$depth == log2(numProcs) - 1$}
+\State $\textit{rank} \gets \text{rank} + 1$\Comment{no round robin needed}
+\If{rank = 0}
+\State $\textit{toSend} \gets \Call{BuildKDTree}{$leftPoints, leftLength, myaxis, 2$}$
+\Else
+\color{orange}
+\State $MPI\_Send(leftLength, 1, MPI\_INT, rank, 2, MPI\_COMM\_WORLD)$
+\State $MPI\_Send(leftPoints, leftLength, MPI\_BYTE, rank, 0, MPI\_COMM\_WORLD)$
+\color{black}
+\EndIf
+\State $\textit{rank} \gets \text{rank} + 1$\Comment{no round robin needed}
+\color{orange}
+\State $MPI\_Send(rightLength, 1, MPI\_INT, rank, 2, MPI\_COMM\_WORLD)$
+\State $MPI\_Send(rightPoints, rightLength, MPI\_BYTE, rank, 0, MPI\_COMM\_WORLD)$
+\color{black}
+\EndIf
+\algstore{bkbreak}
+\end{algorithmic}
+\end{algorithm}
+Continuing ... 
+\begin{algorithm}[h]
+\begin{algorithmic}[1]
+\algrestore{bkbreak}
+\State $\textit{depth} \gets \text{depth} + 1$
+\State $\textit{medianNode.left} \gets \Call{FindFirstNodes}{$leftPoints, length, myaxis, dim, depth, rank$}$
+\color{blue}
+\State{\#pragma omp task}
+\color{black}
+\State $\textit{depth} \gets \text{depth} + 1$
+\State $\textit{medianNode.right} \gets \Call{FindFirstNodes}{$rightPoints, length, myaxis, dim, depth, rank$}$
+\State \Return \text{treeNode}
+\EndFunction
+\Statex
+\end{algorithmic}
+\end{algorithm}
+ 
+\section{Performance model and scaling}
+Measurements for speedup and efficiency graphs are used to acquire an indication of how well the implementation is performing in regard to some reference
+implementation. As reference, the corresponding serial execution of the code is used, on the same hardware.
+\subsection{Hardware}
+\begin{itemize}
+\item Device: Tesla V100-PCIE-32GB
+\item Multiprocessors: 48
+\item CUDA Cores/MP: 64
+\item Maximum number of threads per MP: 2048, per block 1028
+\end{itemize}
+\subsection{Parallel speed-up}
+In order to compute the parallel speed-up of the implementation, the following formula is used:
+\begin{equation} \label{eqn}
+	S(P) = {T(1) / T(P)} 
+\end{equation}
+, where T(1) is the serial execution time, and T(P) is the parallel execution time of the same problem size, with P tasks.
+\subsection{Strong scaling}
+Parallel efficiency, also referred to as strong scaling, is calculated by:
+\begin{equation} \label{eqn}
+	E(P) = {S(P) / P} 
+\end{equation}
+When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not a goal, since the code usually has parts that need to execute in a serial fashion. Ahmdal hence defined a way to model these more common, realistic implementations:
+\begin{equation} \label{eqn}
+	Sahm(P) = {1 /(s + (p/N)} 
+\end{equation}
+In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where rank 0 computes the nodes up until a certain level of the tree.
+
+\subsection{Weak scaling}
+Gustafson pointed out, that in practice the sizes of problems scale with the amount of available resources.
+This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size).
+\begin{equation} \label{eqn}
+	Sgus(P) = {s + p × N} 
+\end{equation}
+\subsection{Thread equilibrium for Hybrid solution}
+To understand better the optimal number of threads to be used for the hybrid approach, further analysis is needed.
+Using for the purpose the OpenMP function $omp\_get\_wtime$.
+\section{Conclusion}
+OpenMPI strategy could have been used to find the pivot element. In that case, rank 0 would have scattered the sections to the ranks, the ranks would have computed the insertion sort, to then send back their medians to rank 0, rank 0 gathering them.
+\end{document}
