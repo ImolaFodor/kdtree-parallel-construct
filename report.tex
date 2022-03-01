@@ -249,7 +249,7 @@ Continuing ...
  
 \section{Performance model and scaling}
 Measurements for speedup and efficiency graphs are used to acquire an indication of how well the implementation is performing in regard to some reference
-implementation. As reference, the corresponding serial execution of the code is used, on the same hardware.
+implementation. As reference, the corresponding serial execution of the code is used, on the same hardware, namely, for 10k datapoints, the execution time is 0.38s.
 \subsection{Hardware}
 \begin{itemize}
 \item Device: Tesla V100-PCIE-32GB
@@ -274,6 +274,19 @@ When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not a 
 \end{equation}
 In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where the master rank computes the nodes up until a certain level of the tree.
 
+
+\textit{Results 10k datapoints}
+\begin{center}
+\begin{tabular}{ |c|c|c|c|c|c| } 
+ \hline
+ Number of procs & 2 & 4 & 8 & 16 & 32 \\
+ \hline
+ Time [s] & 0.39 &	0.42 & 0.42	& 0.42 & x \\
+ \hline
+\end{tabular}
+\end{center}
+
+No further analysis has been made, since no improvement in time has been noticed as the number of procs increased.
 \subsection{Weak scaling}
 Gustafson instead pointed out, that in practice the sizes of problems scale with the amount of available resources.
 This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ. The problem size was increased by a factor of $10$ (starting from $1k$), with each scale up in resources.
@@ -293,5 +306,8 @@ To understand better the optimal number of threads to be used for the hybrid app
 Using for the purpose the OpenMP function $omp\_get\_wtime$.
 It was noted that the program, to execute on $10k$ datapoints, took slightly lower time for 2 threads, $0.39s$ whileas for larger threads the time was $>0.4s$.
 \section{Conclusion}
+
+The logic of the implementation in theory promised scaling with more tasks employed, but the timings extracted did not reflect the same.
+
 OpenMPI strategy could have been used to find the pivot element. In that case, rank 0 would have scattered the sections to the ranks, the ranks would have computed the insertion sort, to then send back their medians to rank 0, rank 0 gathering them.
 \end{document}
