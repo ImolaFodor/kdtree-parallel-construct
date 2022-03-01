@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_DIM 2
-#define COUNT 1000000
+#define COUNT 10000
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -33,7 +33,7 @@ void insertion_sort(struct kd_node_t *start, int n, int dim)
     struct kd_node_t *temp_j = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *temp_jprev = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
-    #pragma omp parallel for
+   
     for (i = 1; i < n; i++) {
         j = i ;
         temp_j = start + j;
@@ -50,7 +50,6 @@ void insertion_sort(struct kd_node_t *start, int n, int dim)
         }
     }
 }
-
 size_t med_index(size_t i) {
     return (size_t)(floor(i/2));
 }
@@ -111,7 +110,8 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
 
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
-
+//    np = omp_get_num_threads();
+    //printf("Number of threads %d\n", np);
     int myaxis = (i + 1) % dim;
     
     if (depth == log2(numprocs)) return 0;
@@ -124,7 +124,7 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     n->axis = myaxis;
     n->index = index;
     //printf("The medians index value is: %d\n", index + 1);
-    //rank = rank + 1;
+    
     #pragma omp task
     {
         
@@ -298,8 +298,8 @@ int main(int argc, char* argv[])
     struct kd_node_t *chunk;
     
     //MPI_Init(&argc, &argv);
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
-    if (provided < MPI_THREAD_FUNNELED) MPI_Abort(MPI_COMM_WORLD,1);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    //if (provided < MPI_THREAD_MULTIPLE) MPI_Abort(MPI_COMM_WORLD,1);
 
     start_time=MPI_Wtime();
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -371,7 +371,7 @@ int main(int argc, char* argv[])
                }
              #pragma omp barrier
              {
-                    // print2D(send_n);
+                //    print2D(send_n);
              } 
            }
          }
