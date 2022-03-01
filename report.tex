@@ -3,6 +3,27 @@
 \usepackage{algorithm}
 \usepackage{amsmath}
 \usepackage{xcolor}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+
+\usepackage{pgfplots}
+\usepackage{graphicx}
+\usepackage[skip=0.33\baselineskip]{caption}
+\captionsetup[figure]{
+    font=bf,
+    size=normalsize,
+    justification=centerlast,
+    }
+\usepackage[labelformat=simple]{subcaption}
+    \captionsetup[subfigure]{
+    font=normal,
+    size=normalsize,
+    justification=centerlast,
+    }
+\renewcommand*{\thesubfigure}{Panel \thefigure\Alph{subfigure}:}
+\newcommand{\plotheight}{0.425}
+\newcommand{\plotwidth}{0.7}
 
 \title{kd-tree construction and analysis with OpenMP and OpenMPI}
 \date{Deadline 28.02.2022}
@@ -14,7 +35,7 @@
 
 \newpage
 
-\section{Introdution}
+\section{Introduction}
 A K Dimensional tree (or k-d tree) is a tree data structure that is used to represent points with more than one property in a k-dimensional space. It is a convenient way to organize points by several criteria at once and it provides eg. a convenient way to search, cluster points by their overall similarity. \\ In this work a way to build and parallelize such a tree is presented.
 \section{Algorithm}
 The construction of the tree is done by:
@@ -251,14 +272,22 @@ When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not a 
 \begin{equation} \label{eqn}
 	Sahm(P) = {1 /(s + (p/N)} 
 \end{equation}
-In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where rank 0 computes the nodes up until a certain level of the tree.
+In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where the master rank computes the nodes up until a certain level of the tree.
 
 \subsection{Weak scaling}
-Gustafson pointed out, that in practice the sizes of problems scale with the amount of available resources.
-This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size).
+Gustafson instead pointed out, that in practice the sizes of problems scale with the amount of available resources.
+This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ.
 \begin{equation} \label{eqn}
 	Sgus(P) = {s + p × N} 
 \end{equation}
+\begin{figure}[H]
+    \centering
+\begin{subfigure}{\plotwidth\textwidth}
+        \centering
+\includegraphics[width=\linewidth, height=\plotheight\textheight]{img_weak_scaling_efficiency}
+\caption{Figure 4.}
+\end{subfigure}
+\end{figure}
 \subsection{Thread equilibrium for Hybrid solution}
 To understand better the optimal number of threads to be used for the hybrid approach, further analysis is needed.
 Using for the purpose the OpenMP function $omp\_get\_wtime$.
