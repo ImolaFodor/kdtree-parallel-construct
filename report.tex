@@ -46,7 +46,13 @@ The construction of the tree is done by:
   \item Return root node.
 \end{itemize}
 
-The time complexity of the divide and conquer algorithm is O(nlogn) since the pivot is chosen in O(nlogn) time. If the partitioning would be done in a non optimal way (choosing as pivot the lowest, largest element of the array), the complexity would be O($n^2$).
+The time complexity of the divide and conquer algorithm is O(nlogn) since the partition process always picks the middle element as pivot. The median of the medians is found in linear time, O(n). 
+\\\\
+Time complexity for partitioning n datapoints:
+\begin{equation} \label{eqn}
+T(n) = 2T(n/2) + \theta(n)
+\end{equation}
+If the partitioning would be done in a non optimal way (choosing as pivot the lowest, largest element of the array), the complexity would be O($n^2$).
 \begin{algorithm}[H]
 \caption{Build kD-tree}
 \hspace*{\algorithmicindent} \textbf{Input} \text{arrayOfNodes} \\
@@ -81,6 +87,9 @@ The time complexity of the divide and conquer algorithm is O(nlogn) since the pi
 \Statex
 \If {$numSubarrays = high$}
 \State $\textit{median} \gets \Call{MedianOfMedians}{medians, end, myaxis, length}$
+\Else
+\State \Call{InsertionSort}{$medians, num\_subarrays, myaxis$}
+\State $\textit{median} \gets medians[middleElement]$
 \EndIf
 \EndIf
 \State \Return \text{median}
@@ -149,6 +158,7 @@ Below the simplified, decorated Algorithm1 with the instruction read by OpenMP d
 \State $\textit{medians[i]} \gets middleElement$
 \EndFor
 \Statex
+\State \Call{InsertionSort}{$medians, num_subarrays, myaxis$}
 \State $\textit{median} \gets medians[middleElement]$
 \EndIf
 \State \Return \text{median}
@@ -268,7 +278,7 @@ Parallel efficiency, also referred to as strong scaling, is calculated by:
 \begin{equation} \label{eqn}
 	E(P) = {S(P) / P} 
 \end{equation}
-When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not a goal, since the code usually has parts that need to execute in a serial fashion. Ahmdal hence defined a way to model these more common, realistic implementations:
+When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not an ultimate goal, since the code usually has parts that need to execute in a serial fashion. Ahmdal hence defined a way to model these more common, realistic implementations:
 \begin{equation} \label{eqn}
 	Sahm(P) = {1 /(s + (p/N)} 
 \end{equation}
@@ -289,10 +299,11 @@ In case of the above described implementation, the purely serial part (s) is the
 No further analysis has been made, since no improvement in time has been noticed as the number of procs increased.
 \subsection{Weak scaling}
 Gustafson instead pointed out, that in practice the sizes of problems scale with the amount of available resources.
-This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ. The problem size was increased by a factor of $10$ (starting from $1k$), with each scale up in resources.
+This is called weak scaling, where the scaled speedup is calculated based on the amount of work done for a scaled problem size (in contrast to Amdahl’s law which focuses on fixed problem size). Gustafson proposed that with increased resources, the serial part remains the same, doesn't increase, even if the problem size increases.\\\\The implementation of this work does not exactly comply with the latter assumption, since the more tasks we can employ, the master rank will have a bigger amount of levels (of the tree) to compute. Nevertheless, the weak scaling analysis is done, since the possible serial part is in any case, not utterly expensive, given the max amount of tasks we can employ.
 \begin{equation} \label{eqn}
 	Sgus(P) = {s + p × N} 
 \end{equation}
+The weak efficiency can be calculated by eq.(3), changing the problem size with each change of resources.  The problem size was increased by a factor of $10$ (starting from $1k$), with each scale up in resources.
 \begin{figure}[H]
 \centering
 \begin{subfigure}{\plotwidth\textwidth}
@@ -307,7 +318,8 @@ Using for the purpose the OpenMP function $omp\_get\_wtime$.
 It was noted that the program, to execute on $10k$ datapoints, took slightly lower time for 2 threads, $0.39s$ whileas for larger threads the time was $>0.4s$.
 \section{Conclusion}
 
-The logic of the implementation in theory promised scaling with more tasks employed, but the timings extracted did not reflect the same.
-
+The logic of the implementation in theory promised scaling with more tasks employed, but the timings extracted did not reflect the same.\\
+The master rank slows the computation. 
+\\\\
 OpenMPI strategy could have been used to find the pivot element. In that case, rank 0 would have scattered the sections to the ranks, the ranks would have computed the insertion sort, to then send back their medians to rank 0, rank 0 gathering them.
 \end{document}
