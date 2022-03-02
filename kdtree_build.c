@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_DIM 2
-#define COUNT 10000
+#define COUNT 20
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -88,9 +88,10 @@ struct kd_node_t* median_of_medians(struct kd_node_t *start, struct kd_node_t *e
     
     // determine pivot recursively
     struct kd_node_t* pivot;
-    if (n_sublists < 5)
+    if (n_sublists < 5){
+        insertion_sort(medians, n_sublists, axis);
         pivot = &medians[med_index(n_sublists)];
-    else
+    }else
         pivot = median_of_medians(medians, medians + n_sublists - 1,axis, n_sublists);
 
     return pivot; 
@@ -371,7 +372,7 @@ int main(int argc, char* argv[])
                }
              #pragma omp barrier
              {
-                //    print2D(send_n);
+                    print2D(send_n);
              } 
            }
          }
