@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_DIM 2
-#define COUNT 20
+#define COUNT 10000
 
 struct kd_node_t{
     double x[MAX_DIM];
@@ -115,7 +115,7 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     //printf("Number of threads %d\n", np);
     int myaxis = (i + 1) % dim;
     
-    if (depth == log2(numprocs)) return 0;
+    if (depth == floor(log2(numprocs))) return 0;
 
     temp = median_of_medians(t, t + len - 1, myaxis, len);
 
@@ -130,31 +130,31 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
     {
         
         int chunk_size;
-        if (depth == (log2(numprocs) - 1)){ 
+        if (depth == (floor(log2(numprocs)) - 1)){ 
          
           *rank = *rank + 1;
           *rank = *rank >= numprocs ? 0 : *rank;    
-          if (*rank == 0){
-            //printf("Left chunk to %d, size %d \n", *rank, n-t);
-            struct kd_node_t* send_n;
-            send_n = make_tree(t, n - t, myaxis, 2);
-            //printf("In process %d ...send_n  element %f\n", *rank, send_n -> x[0]);
-            //print2D(send_n);
-          }else{
-          
+               
           chunk_size = n-t;
           //printf("Left chunk to rank %d, size %d \n", *rank, chunk_size);
           MPI_Send(&chunk_size, 1, MPI_INT, *rank, 2, MPI_COMM_WORLD);
           MPI_Send(t, chunk_size*sizeof(struct kd_node_t), MPI_BYTE,*rank, 0, MPI_COMM_WORLD);      
-          }
+          
           
           *rank = *rank + 1;
           *rank = *rank>=numprocs ? 0 : *rank;     
+          if (*rank == 0){
+            //printf("Left chunk to %d, size %d \n", *rank, n-t);
+            struct kd_node_t* send_n;
+            send_n = make_tree(&t[index] + 1, t + len - (n+1), myaxis, 2);
+            //printf("In process %d ...send_n  element %f\n", *rank, send_n -> x[0]);
+            //print2D(send_n);
+          }else{
           chunk_size = t + len - (n+1);
           //printf("Right chunk to rank %d, size %d \n", *rank, chunk_size);
           MPI_Send(&chunk_size, 1, MPI_INT, *rank, 2, MPI_COMM_WORLD);
           MPI_Send(&t[index] + 1, chunk_size*sizeof(struct kd_node_t), MPI_BYTE, *rank, 0, MPI_COMM_WORLD);
-       
+          }       
         }
  
         depth = depth + 1;
@@ -174,14 +174,7 @@ struct kd_node_t* find_first_nodes(struct kd_node_t *t, int len, int i, int dim,
 struct kd_node_t* make_tree(struct kd_node_t *t, int len, int i, int dim)
 {
    
-    int numprocs, rank, namelen;
-    char processor_name[MPI_MAX_PROCESSOR_NAME];
-    int iam = 0, np = 1;
-
-    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Get_processor_name(processor_name, &namelen);
-
+   
     struct kd_node_t *temp = (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
     struct kd_node_t *n= (struct kd_node_t*)malloc(sizeof(struct kd_node_t));
 
@@ -372,7 +365,7 @@ int main(int argc, char* argv[])
                }
              #pragma omp barrier
              {
-                    print2D(send_n);
+                   // print2D(send_n);
              } 
            }
          }
