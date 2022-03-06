@@ -106,7 +106,20 @@ Herein the strategy used for OpenMP, OpenMP and their hybrid solution.
 
 \subsection{OpenMP}
 OpenMP is one of the application programming interfaces that facilitates the employment of a shared memory paradigm for parallelization within a node.
-Below the simplified, decorated Algorithm1 with the instruction read by OpenMP during compilation.
+Below the simplified, decorated Algorithm1 with the instruction read by OpenMP during compilation.\\
+\color{red}
+The algorithm has not shown scaling by increasing the number of resources on 1M datapoints. The execution time reported below.\\
+\textit{Results 1M datapoints}
+\begin{center}
+\begin{tabular}{ |c|c|c|c|c|c|c| } 
+ \hline
+ Number of threads & 2 & 4 & 8 & 16 & 48 & 96 \\
+ \hline
+ Time [s] & 0.18 & 0.17 & 0.18 & 0.18	& 0.19 & 0.19 \\
+ \hline
+\end{tabular}
+\end{center}
+\color{black}
 \begin{algorithm}[H]
 \caption{Build kD-tree w/ OpenMP}
 \hspace*{\algorithmicindent} \textbf{Input} \text{arrayOfNodes} \\
@@ -261,12 +274,14 @@ Continuing ...
 Measurements for speedup and efficiency graphs are used to acquire an indication of how well the implementation is performing in regard to some reference
 implementation. As reference, the corresponding serial execution of the code is used, on the same hardware, namely, for 10k datapoints, the execution time is 0.38s.
 \subsection{Hardware}
+\color{red}
 \begin{itemize}
-\item Device: Tesla V100-PCIE-32GB
-\item Multiprocessors: 48
-\item CUDA Cores/MP: 64
-\item Maximum number of threads per MP: 2048, per block 1028
+\item CPU name:	Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz
+\item Sockets: 2
+\item Cores per socket:	12
+\item Threads per core:	2, HT on
 \end{itemize}
+\color{black}
 \subsection{Parallel speed-up}
 In order to compute the parallel speed-up of the implementation, the following formula is used:
 \begin{equation} \label{eqn}
@@ -282,8 +297,7 @@ When $S(P)=P$ it is considered a perfect speed-up. This in "real-life" is not an
 \begin{equation} \label{eqn}
 	Sahm(P) = {1 /(s + (p/N)} 
 \end{equation}
-In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where the master rank computes the nodes up until a certain level of the tree.
-
+In case of the above described implementation, the purely serial part (s) is the initialization of the array of nodes. Furthermore, a show-stopper to a full parallelization is the part where the master rank computes the nodes up until a certain level of the tree.\\
 
 \textit{Results 10k datapoints}
 \begin{center}
@@ -295,6 +309,13 @@ In case of the above described implementation, the purely serial part (s) is the
  \hline
 \end{tabular}
 \end{center}
+
+
+\textit{Example run:}\\
+\text{$mpicc -fopenmp -lm -g kdtree\_build.c -o kdtree.x$}\\
+mpirun -np 2 kdtree.x\\
+Start Time: 0.000000, End Time: 0.001544, Elapsed Time: 0.00154371\\
+Start Time: 0.000000, End Time: 0.432807, Elapsed Time: 0.43280652\\
 
 No further analysis has been made, since no improvement in time has been noticed as the number of procs increased.
 \subsection{Weak scaling}
@@ -319,7 +340,10 @@ It was noted that the program, to execute on $10k$ datapoints, took slightly low
 \section{Conclusion}
 
 The logic of the implementation in theory promised scaling with more tasks employed, but the timings extracted did not reflect the same.\\
-The master rank slows the computation. 
+\color{red}The master rank slows the computation, since it may happen that before sending the chunks to other ranks, it computes his subtree creation task.
+This was addressed by programmatically directing the MPI calls to execute before the rank 0 would execute its task, but no improvement was shown in the performance.\color{black}
+\\\\
+\color{red}Pinning has not been specified for potential increase in performance. Profiling to better understand the time each section takes neither.\color{black}
 \\\\
 OpenMPI strategy could have been used to find the pivot element. In that case, rank 0 would have scattered the sections to the ranks, the ranks would have computed the insertion sort, to then send back their medians to rank 0, rank 0 gathering them.
 \end{document}
